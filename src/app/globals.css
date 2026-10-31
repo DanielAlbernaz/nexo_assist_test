@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
+/* Tokens extraídos do protótipo (nexo.pen) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #ffffff;
+  --desk: #f6f7f9;
+  --ink: #1b2431;
+  --ink-2: #3d4656;
+  --ink-3: #5b6472;
+  --rule: #e6e8ec;
+
+  --bg: #fcfcfc;
+  --card: #f5f5f5;
+  --card-strong: #ededed;
+  --fg: #0b0b0b;
+  --muted: #636363;
+  --subtle: #8e8e8e;
+  --border: #0b0b0b14;
+  --border-strong: #0b0b0b24;
+
+  --primary: #0285f7;
+  --primary-hover: #0071d6;
+  --primary-soft: #0285f712;
+  --primary-text: #0069c7;
+  --cta: #0062c4;
+
+  --success: #00bd6c;
+  --success-soft: #00bd6c14;
+  --success-text: #00804a;
+  --warning: #f5a500;
+  --warning-soft: #f5a50018;
+  --warning-text: #946300;
+  --danger: #ee343b;
+  --danger-soft: #ee343b12;
+  --danger-text: #c4161d;
+  --violet: #a37aff;
+  --violet-soft: #a37aff16;
+  --violet-text: #6b3fe0;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-paper: var(--paper);
+  --color-desk: var(--desk);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-card: var(--card);
+  --color-card-strong: var(--card-strong);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-text: var(--primary-text);
+  --color-cta: var(--cta);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-text: var(--violet-text);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --font-sans: var(--font-ui), system-ui, sans-serif;
+  --font-display: var(--font-serif), Georgia, serif;
+  --font-mono: var(--font-data), ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui), system-ui, sans-serif;
 }
