@@ -303,10 +303,15 @@ const SCENARIOS: Scenario[] = [
       "O sistema de vendas caiu e ninguém na empresa consegue emitir pedidos, toda a operação está parada.",
       "Sim, está tudo parado e não existe alternativa.",
     ],
-    check: (t) => {
+    check: async (t, { conversationId }) => {
       const [d] = drafts(t);
       if (!d) return "não montou o rascunho";
-      if (called(t, "request_handoff").length) return "transferiu antes de abrir o chamado crítico";
+      // Tentar transferir é recusado pela ferramenta; o que importa é o efeito.
+      const [c] = await db
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.id, conversationId));
+      if (c?.state !== "agent") return "transferiu antes de o funcionário confirmar o chamado";
       return d.priority === "Crítica" ? null : `prioridade ${d.priority}, esperado Crítica`;
     },
   },
