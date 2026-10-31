@@ -11,6 +11,9 @@ export const config = {
   /** Quantas mensagens anteriores o agent recebe a cada turno. */
   historyWindow: 16,
   ticketService: {
+    /** Base HTTP do sistema de chamados; vazio = chamada em processo (mesmo contrato). */
+    url: process.env.TICKET_SERVICE_URL ?? "",
+    token: process.env.TICKET_SERVICE_TOKEN ?? "",
     failureRate: num(process.env.TICKET_SERVICE_FAILURE_RATE, 0),
     latencyMs: num(process.env.TICKET_SERVICE_LATENCY_MS, 0),
   },

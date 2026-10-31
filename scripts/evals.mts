@@ -32,11 +32,11 @@ await runSeed();
 const { eq } = await import("drizzle-orm");
 const { runAgentTurn } = await import("@/agent/run-turn");
 const { addMessage, listMessages } = await import("@/chat/repository");
-const { createTicketClient } = await import("@/ticket-service/client");
+const { createInProcessTicketClient } = await import("@/ticket-service/in-process");
 const { TicketService } = await import("@/ticket-service/service");
 import type { AgentStep, Block, DraftView } from "@/chat/types";
 
-const tickets = createTicketClient(new TicketService(db));
+const tickets = createInProcessTicketClient(new TicketService(db));
 const ATTEMPTS = Number(process.env.EVALS_ATTEMPTS ?? 2);
 
 interface TurnResult {

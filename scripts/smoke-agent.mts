@@ -5,11 +5,11 @@
 import { db } from "@/db/client";
 import { runAgentTurn } from "@/agent/run-turn";
 import { addMessage, getOrCreateConversation, listMessages } from "@/chat/repository";
-import { createTicketClient } from "@/ticket-service/client";
+import { createInProcessTicketClient } from "@/ticket-service/in-process";
 import { TicketService } from "@/ticket-service/service";
 
 const userId = process.env.SMOKE_USER ?? "ana.souza";
-const tickets = createTicketClient(new TicketService(db));
+const tickets = createInProcessTicketClient(new TicketService(db));
 const conv = await getOrCreateConversation(db, userId);
 
 for (const text of process.argv.slice(2)) {

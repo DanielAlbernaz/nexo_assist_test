@@ -66,7 +66,7 @@ Para simular o legado instável, defina `TICKET_SERVICE_FAILURE_RATE=0.5` (e, se
 | Pasta | Responsabilidade |
 |---|---|
 | `src/domain` | Regras do Anexo A como funções puras (sem I/O, sem modelo): horário útil, prazos, prioridade, duplicidade, reabertura. |
-| `src/ticket-service` | O "sistema de chamados legado". É a **única** porta para os dados de chamados, e o agent só a acessa por um cliente com retry. Toda operação exige o dono do chamado. |
+| `src/ticket-service` | O "sistema de chamados legado", exposto por **HTTP** (`POST /api/ticket-service/<op>`, token `Bearer`, JSON, 401/404/409/503). É a **única** porta para os dados de chamados. O agent usa um cliente HTTP com retry e a rota só atende com o token interno. Toda operação exige o dono do chamado. |
 | `src/chat` | Conversas, mensagens, rascunhos, confirmação, transferência e busca na central de ajuda. |
 | `src/agent` | Instruções, ferramentas Mastra, modelo e execução de um turno com streaming. |
 | `src/app/api` | Rotas HTTP finas: autenticação, validação (zod), limites e chamada às camadas acima. |
@@ -138,10 +138,10 @@ Controles de custo: máximo de **30 mensagens por conversa** (visível na interf
 
 ## Testes
 
-`npm test` roda 67 testes:
+`npm test` roda 76 testes:
 
 - **Domínio**: horário útil atravessando fim de semana, prazos, vencimento, prioridade, reabertura, duplicidade.
-- **Serviço de chamados**: privacidade, numeração, reabertura, indisponibilidade e retry, em SQLite em memória com o schema real.
+- **Serviço de chamados**: privacidade, numeração, reabertura, indisponibilidade e retry, em SQLite em memória com o schema real. **Contrato HTTP**: token (401), validação (400), 404/409/503 traduzidos em erros de negócio, retry em 503 e falha de rede, e o transporte `fetch`.
 - **Chat**: rascunhos, confirmação (inclui "não cria duas vezes", "legado fora do ar mantém pendente" e transferência automática em chamado crítico), privacidade das ferramentas do agent, central de ajuda, sessão assinada e rate limit.
 
 ### Evals do agent (modelo real)
@@ -169,7 +169,7 @@ Os limites do chat (30 mensagens por conversa e 8 por minuto) são contados no b
 
 ## Trade-offs e o que faria com mais tempo
 
-- **Sistema de chamados**: é um módulo separado com interface própria, não um serviço HTTP independente. Mantive assim para rodar com poucos comandos; trocar por um cliente HTTP é mudar `src/ticket-service/client.ts`.
+- **Sistema de chamados**: tem contrato HTTP próprio (`src/ticket-service/http.ts`, rota `/api/ticket-service/*`) e o agent o consome por um cliente HTTP, com retry, tradução de status em erros de negócio e token interno. Por padrão o transporte entrega a requisição ao mesmo handler dentro do processo (um deploy só, sem depender de a função serverless alcançar a própria URL). Para usá-lo como serviço separado, defina `TICKET_SERVICE_URL` e `TICKET_SERVICE_TOKEN`: nada mais muda.
 - **Tempo real**: o chat usa SSE para a resposta do agent, mas mensagens de analista chegam por *polling* de 3 s. Com mais tempo: SSE/WebSocket também para isso e para a lista do console.
 - **Duplicidade e busca na central**: ambas por palavras (Jaccard / sobreposição de termos). Com mais tempo: embeddings, que pegam "VPN caiu" × "sem acesso remoto".
 - **Evals**: hoje são 13 cenários de uma única passada por conversa; faltam conversas longas, mais variações de redação e métricas de custo por cenário.

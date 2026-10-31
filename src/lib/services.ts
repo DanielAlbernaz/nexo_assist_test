@@ -1,13 +1,17 @@
 import { db } from "@/db/client";
-import { createTicketClient } from "@/ticket-service/client";
-import { TicketService } from "@/ticket-service/service";
+import { createHttpTicketClient, fetchTransport } from "@/ticket-service/http-client";
+import { createInProcessTicketClient } from "@/ticket-service/in-process";
 import { config } from "./config";
+import { ticketBackend } from "./ticket-backend";
 
-/** Instâncias compartilhadas pelas rotas (um sistema de chamados por processo). */
-const ticketService = new TicketService(db, {
-  failureRate: config.ticketService.failureRate,
-  latencyMs: config.ticketService.latencyMs,
-});
-
-export const tickets = createTicketClient(ticketService);
+/**
+ * O agent e as rotas falam com o sistema de chamados pelo contrato HTTP
+ * (`/api/ticket-service/*`): serialização, token, códigos de status e retry são
+ * os mesmos de um serviço remoto. Com TICKET_SERVICE_URL a chamada sai pela rede;
+ * sem ela, o mesmo handler é invocado dentro do processo (um deploy só, sem
+ * depender de a função serverless alcançar a própria URL).
+ */
+export const tickets = config.ticketService.url
+  ? createHttpTicketClient(fetchTransport(config.ticketService.url, ticketBackend.token))
+  : createInProcessTicketClient(ticketBackend.service, ticketBackend.token);
 export { db };
