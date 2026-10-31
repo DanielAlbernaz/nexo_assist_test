@@ -1,8 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { ensureLocalDbDir } from "./ensure-dir";
 import * as schema from "./schema";
 
 const url = process.env.DATABASE_URL ?? "file:./data/nexo.db";
+ensureLocalDbDir(url);
 
 const client = createClient({
   url,
