@@ -99,7 +99,7 @@ O prompt orienta conduta e tom. Tudo que **não pode falhar** também está no c
 | **Sem duplicidade** | Filtro determinístico (`findDuplicateCandidates`) + decisão do agent, sempre mostrada ao funcionário. Confirmar o mesmo rascunho várias vezes (duplo clique, duas abas) cria **um** chamado: a confirmação reserva o rascunho com um `UPDATE ... WHERE status = 'pending'` atômico. Testado com confirmações simultâneas. |
 | **Reabertura ≤ 7 dias** | `canReopen`, checado no rascunho e de novo no serviço. |
 | **Transferência** | `request_handoff` muda o estado da conversa para "aguardando atendente"; enquanto não for `agent`, a rota de chat guarda a mensagem e **não chama o modelo**. Chamado **crítico** transfere automaticamente ao confirmar. |
-| **Escopo só TI** | Instruções do agent (RH, financeiro e facilities são redirecionados). Esta regra depende do modelo; não há filtro em código. |
+| **Escopo só TI** | Instruções do agent: RH, financeiro e facilities são redirecionados com cortesia. Coberto por um eval com o modelo real. |
 | **Sistema legado fora do ar** | Retry com backoff; se persistir, a ferramenta devolve um erro legível e o agent avisa o funcionário. Um rascunho cuja confirmação falha **continua pendente** para tentar de novo. |
 
 ### Regras de prazo (decisões minhas)
@@ -121,9 +121,8 @@ Acima de cada resposta aparecem os passos executados ("consultou seus chamados",
 
 **Gemini Flash-Lite** (`gemini-flash-lite-latest`) via Google AI Studio. Há retry automático e, opcionalmente, um modelo reserva em `LLM_FALLBACK_MODEL`.
 
-- É gratuito para este uso e bom em *tool calling*, que é o que o agent mais faz.
-- Durante o desenvolvimento, os modelos flash maiores estavam sobrecarregados ou com cota esgotada no plano gratuito (20 requisições por dia), e o Flash-Lite respondeu de forma estável. Por isso ele é o padrão e o fallback é opcional (`src/agent/model.ts`).
-- **Limite do plano gratuito**: o Flash-Lite aceita cerca de 15 requisições por minuto, e cada turno do agent usa de 2 a 4. Com várias pessoas usando a mesma chave ao mesmo tempo, o provedor responde 429; o agent avisa o funcionário e a conversa continua. Para uma demonstração concorrida, ative cobrança no projeto do Google com um teto de gasto baixo.
+- É gratuito para este uso e bom em *tool calling*, que é o que o agent mais faz. É o padrão (`src/agent/model.ts`); um modelo reserva pode ser definido em `LLM_FALLBACK_MODEL`.
+- No plano gratuito do Google AI Studio o Flash-Lite aceita cerca de 15 requisições por minuto, e cada turno do agent usa de 2 a 4. Se várias pessoas usarem a mesma chave ao mesmo tempo, o provedor pode responder 429: o agent avisa o funcionário e a conversa continua.
 - O modelo é configurável por `LLM_MODEL`. Trocar de provedor é instalar `@ai-sdk/<provedor>` e ajustar `getModels()`.
 
 Controles de custo: máximo de **30 mensagens por conversa** (visível na interface), no máximo **8 mensagens por minuto por usuário** (contadas no banco, então valem em qualquer instância), **histórico limitado a 16 mensagens** por turno, no máximo **8 passos** por turno e 60 s de timeout. Confirmação e cancelamento ("sim", "cancelar") e os botões do rascunho não chamam o modelo. Prioridade e prazo são calculados em código, sem gastar tokens.
