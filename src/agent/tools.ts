@@ -139,7 +139,7 @@ export function createTools({ db, tickets, now = Date.now }: ToolDeps) {
   const draft_ticket = createTool({
     id: "draft_ticket",
     description:
-      "Monta o RASCUNHO de um chamado novo (create), de uma atualização (update) ou de uma reabertura (reopen) e o mostra ao funcionário para confirmar. NÃO cria nem altera nada: só o botão Confirmar do funcionário faz isso. A prioridade e o prazo são calculados pelo sistema a partir de affected, blocking e sameDayCommitment. Só chame com todas as informações; se faltar algo (principalmente quem é afetado), pergunte antes.",
+      "Monta o RASCUNHO de um chamado novo (create), de uma atualização (update) ou de uma reabertura (reopen) e o mostra ao funcionário para confirmar. NÃO cria nem altera nada: só o botão Confirmar do funcionário faz isso. A prioridade e o prazo são calculados pelo sistema a partir de affected, blocking e sameDayCommitment. Só chame com todas as informações; se faltar algo (principalmente quem é afetado), pergunte antes. Para update e reopen, informe targetTicketId e note (a informação nova ou o motivo da reabertura): são obrigatórios.",
     inputSchema: draftInputSchema.extend({
       affected: z
         .enum(["self", "team", "company", "unknown"])
