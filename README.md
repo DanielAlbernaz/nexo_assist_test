@@ -38,6 +38,7 @@ npm run typecheck        # tsc --noEmit
 npm run lint
 npm run db:setup         # recria tabelas e dados de exemplo
 npm run agent:smoke -- "mensagem 1" "mensagem 2"   # conversa com o agent real no terminal
+npm run e2e              # testes de interface (Playwright), sem o modelo
 npm run evals            # cenários de comportamento do agent contra o modelo real
 ```
 
@@ -141,13 +142,14 @@ Controles de custo: máximo de **30 mensagens por conversa** (visível na interf
 
 - **Domínio**: horário útil atravessando fim de semana, prazos, vencimento, prioridade, reabertura, duplicidade.
 - **Serviço de chamados**: privacidade, numeração, reabertura, indisponibilidade e retry, em SQLite em memória com o schema real. **Contrato HTTP**: token (401), validação (400), 404/409/503 traduzidos em erros de negócio, retry em 503 e falha de rede, e o transporte `fetch`.
+- **Interface (`npm run e2e`, Playwright)**: login com senha errada, rotas protegidas por papel (funcionário não entra no console) e o fluxo do analista que assume uma conversa, responde e a mensagem aparece no chat do funcionário. Rodam contra o app compilado, com banco próprio e sem chamar o modelo. Na primeira vez: `npx playwright install chromium`.
 - **Chat**: rascunhos, confirmação (inclui "não cria duas vezes", "legado fora do ar mantém pendente" e transferência automática em chamado crítico), privacidade das ferramentas do agent, central de ajuda, sessão assinada e rate limit.
 
 ### Evals do agent (modelo real)
 
-`npm run evals` roda 13 cenários de conversa contra o Gemini, num banco SQLite próprio recriado a cada execução, e confere comportamentos que não podem falhar: responder dúvida pela central sem abrir chamado, respeitar a condição do artigo (Windows 10 × 11), montar rascunho com a prioridade certa **sem criar nada antes da confirmação**, perguntar quando o pedido é vago, sinalizar chamado vencido, transferir quando pedem um analista, atualizar o chamado aberto em vez de duplicar, reabrir só dentro de 7 dias, redirecionar assunto de RH, **não revelar chamado de outro funcionário**, resistir a injeção de prompt e tratar caso crítico como prioridade Crítica. No fim ele confere o invariante "nenhum chamado foi criado sem confirmação".
+`npm run evals` roda 18 cenários de conversa contra o Gemini, num banco SQLite próprio recriado a cada execução, e confere comportamentos que não podem falhar: responder dúvida pela central sem abrir chamado, respeitar a condição do artigo (Windows 10 × 11), montar rascunho com a prioridade certa **sem criar nada antes da confirmação**, perguntar quando o pedido é vago, sinalizar chamado vencido, transferir quando pedem um analista, atualizar o chamado aberto em vez de duplicar, reabrir só dentro de 7 dias, redirecionar assuntos de RH, financeiro e facilities (inclusive quando vêm misturados com um pedido de TI), recusar pedido para sair do papel, não revelar as instruções internas, **não revelar chamado de outro funcionário**, resistir a injeção de prompt e tratar caso crítico como prioridade Crítica. No fim ele confere o invariante "nenhum chamado foi criado sem confirmação".
 
-O modelo não é determinístico, então cada cenário tem até 2 tentativas (`EVALS_ATTEMPTS`) e o relatório separa "passou de primeira" de "só na repetição". Última execução: **13 cenários, 11 de primeira, 2 só na repetição, 0 falharam**. Eles não rodam no `npm test` porque gastam cota do modelo e dependem de rede. Filtre por nome com `npm run evals -- vpn`.
+O modelo não é determinístico, então cada cenário tem até 2 tentativas (`EVALS_ATTEMPTS`) e o relatório separa "passou de primeira" de "só na repetição". Última execução: **13 cenários, 11 de primeira, 2 só na repetição, 0 falharam**. Eles não rodam no `npm test` porque gastam cota do modelo e dependem de rede. Filtre por nome com `npm run evals -- vpn` e repita tudo N vezes, com taxa de acerto por cenário, com `npm run evals -- --runs=3`.
 
 Os evals já pegaram dois defeitos reais: o agent transferia um caso crítico sem abrir o chamado e chamava a transferência duas vezes (agora a ferramenta é idempotente e o prompt manda abrir o chamado primeiro).
 
