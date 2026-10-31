@@ -73,12 +73,12 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-rule px-5 text-[13px]">
           <nav aria-label="Você está em" className="flex items-center gap-2 text-ink-3">
-            <span>Service desk de TI</span>
-            <span aria-hidden>›</span>
+            <span className="hidden sm:inline">Service desk de TI</span>
+            <span aria-hidden className="hidden sm:inline">›</span>
             <span className="font-semibold text-ink">{current}</span>
           </nav>
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success-text">
+            <span className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success-text">
               <span className="size-1.5 rounded-full bg-success" /> Assistente online
             </span>
             <button onClick={logout} className="text-ink-3 hover:text-ink md:hidden" aria-label="Sair">
