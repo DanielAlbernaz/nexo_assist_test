@@ -285,6 +285,18 @@ describe("ferramentas do agent: privacidade e uso", () => {
     expect(conv?.state).toBe("waiting_analyst");
   });
 
+  it("request_handoff recusa o motivo crítico: a transferência vem da confirmação do rascunho", async () => {
+    const out = await run<{ error?: string }>(
+      tools().request_handoff,
+      { reason: "critical", summary: "Sistema de vendas fora do ar" },
+      "ana",
+    );
+    expect(out.error).toMatch(/draft_ticket/);
+    const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId));
+    expect(conv?.state).toBe("agent");
+    expect((await db.select().from(messages)).filter((m) => m.role === "system")).toHaveLength(0);
+  });
+
   it("request_handoff chamado duas vezes não duplica a transferência", async () => {
     const input = { reason: "user_request", summary: "Quer falar com alguém" };
     await run(tools().request_handoff, input, "ana");

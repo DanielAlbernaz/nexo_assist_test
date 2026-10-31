@@ -168,7 +168,7 @@ export function createTools({ db, tickets, now = Date.now }: ToolDeps) {
   const request_handoff = createTool({
     id: "request_handoff",
     description:
-      "Transfere a conversa para um analista humano; depois disso você para de responder. Use quando o funcionário pedir, em caso crítico, quando o chamado em discussão estiver vencido e ele aceitar, ou quando você não tiver segurança sobre o que fazer (informe a confiança de 0 a 1).",
+      "Transfere a conversa para um analista humano; depois disso você para de responder. Use quando o funcionário pedir, quando o chamado em discussão estiver vencido e ele aceitar, ou quando você não tiver segurança sobre o que fazer (informe a confiança de 0 a 1). Caso crítico não passa por aqui: monte o rascunho e o sistema transfere sozinho quando o funcionário confirmar.",
     inputSchema: z.object({
       reason: z.enum(["user_request", "critical", "overdue", "low_confidence"]),
       summary: z
@@ -178,6 +178,14 @@ export function createTools({ db, tickets, now = Date.now }: ToolDeps) {
     }),
     execute: async (input, context) => {
       const { conversationId } = identity(context);
+      if (input.reason === "critical") {
+        // A transferência de caso crítico acontece na confirmação do rascunho
+        // (src/chat/drafts.ts); fazê-la antes deixaria o caso sem chamado aberto.
+        return {
+          error:
+            "Caso crítico não é transferido por esta ferramenta. Siga a abertura de chamado: chame draft_ticket e peça ao funcionário que confirme o rascunho; o sistema transfere a conversa sozinho na confirmação.",
+        };
+      }
       const info = await requestHandoff(db, { conversationId, now: now(), ...input });
       return { level: info.level, eta: info.etaLabel, deadline: info.deadline };
     },
