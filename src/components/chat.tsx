@@ -103,7 +103,13 @@ export function Chat({ firstName }: { firstName: string }) {
         setConv(data.conversation);
         setDrafts(data.drafts);
         setMessages((prev) => {
-          const base = changed ? [] : prev.filter((m) => !m.id.startsWith("tmp-"));
+          // A mensagem provisória (tmp-) só sai quando a versão salva chega do servidor;
+          // se um refresh em andamento a descartasse antes, ela voltaria depois da resposta.
+          const arrived = (m: ChatMessage) =>
+            data.messages.some((d: ChatMessage) => d.role === "user" && d.content === m.content);
+          const base = changed
+            ? []
+            : prev.filter((m) => !(m.id.startsWith("tmp-") && arrived(m)));
           const known = new Set(base.map((m) => m.id));
           return [...base, ...data.messages.filter((m: ChatMessage) => !known.has(m.id))];
         });
