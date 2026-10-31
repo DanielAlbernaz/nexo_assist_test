@@ -172,25 +172,39 @@ export async function confirmDraft(
   if (row.status !== "pending") return { ok: false, error: "already_resolved" };
   const p = JSON.parse(row.payload) as DraftPayload;
 
-  // Se o sistema legado estiver fora, o erro sobe e o rascunho continua pendente.
+  // Reserva o rascunho de forma atômica: se duas confirmações chegarem juntas (duplo
+  // clique, duas abas), só uma vence e a outra recebe "already_resolved". Sem isso as
+  // duas passariam pelo "está pendente?" e criariam dois chamados.
+  const claim = await db
+    .update(drafts)
+    .set({ status: "confirmed" })
+    .where(and(eq(drafts.id, draftId), eq(drafts.userId, userId), eq(drafts.status, "pending")));
+  if (claim.rowsAffected === 0) return { ok: false, error: "already_resolved" };
+
+  // Se o sistema legado estiver fora, devolve o rascunho para pendente e o erro sobe.
   let ticket;
-  if (p.action === "create") {
-    ticket = await tickets.create(userId, {
-      type: p.type,
-      title: p.title,
-      description: p.description,
-      category: p.category,
-      subcategory: p.subcategory,
-      priority: p.priority,
-      affected: p.affected,
-    });
-  } else if (p.action === "update") {
-    ticket = await tickets.addUpdate(p.targetTicketId!, userId, p.note ?? "");
-  } else {
-    ticket = await tickets.reopen(p.targetTicketId!, userId, p.note ?? "");
+  try {
+    if (p.action === "create") {
+      ticket = await tickets.create(userId, {
+        type: p.type,
+        title: p.title,
+        description: p.description,
+        category: p.category,
+        subcategory: p.subcategory,
+        priority: p.priority,
+        affected: p.affected,
+      });
+    } else if (p.action === "update") {
+      ticket = await tickets.addUpdate(p.targetTicketId!, userId, p.note ?? "");
+    } else {
+      ticket = await tickets.reopen(p.targetTicketId!, userId, p.note ?? "");
+    }
+  } catch (err) {
+    await db.update(drafts).set({ status: "pending" }).where(eq(drafts.id, draftId));
+    throw err;
   }
 
-  await db.update(drafts).set({ status: "confirmed", targetTicketId: ticket.id }).where(eq(drafts.id, draftId));
+  await db.update(drafts).set({ targetTicketId: ticket.id }).where(eq(drafts.id, draftId));
 
   const view = toTicketView(ticket, now);
   const critical = p.action === "create" && ticket.priority === "Crítica";
@@ -215,9 +229,14 @@ export async function confirmDraft(
 }
 
 export async function cancelDraft(db: Db, draftId: string, userId: string, now = Date.now()) {
+  // Atômico, como a confirmação: só cancela se ainda estiver pendente.
+  const res = await db
+    .update(drafts)
+    .set({ status: "cancelled" })
+    .where(and(eq(drafts.id, draftId), eq(drafts.userId, userId), eq(drafts.status, "pending")));
+  if (res.rowsAffected === 0) return false;
   const row = await loadPending(db, draftId, userId);
-  if (!row || row.status !== "pending") return false;
-  await db.update(drafts).set({ status: "cancelled" }).where(eq(drafts.id, draftId));
+  if (!row) return false;
   await addMessage(db, {
     conversationId: row.conversationId,
     role: "agent",

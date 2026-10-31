@@ -155,6 +155,29 @@ describe("confirmação", () => {
     expect(await db.select().from(tickets)).toHaveLength(1);
   });
 
+  it("duas confirmações simultâneas criam um único chamado", async () => {
+    const id = await pendingDraftId();
+    const results = await Promise.all([
+      confirmDraft(db, client, id, "ana", NOW),
+      confirmDraft(db, client, id, "ana", NOW),
+      confirmDraft(db, client, id, "ana", NOW),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toHaveLength(2);
+    expect(await db.select().from(tickets)).toHaveLength(1);
+  });
+
+  it("confirmar e cancelar ao mesmo tempo: só um dos dois vale", async () => {
+    const id = await pendingDraftId();
+    const [confirmed, cancelled] = await Promise.all([
+      confirmDraft(db, client, id, "ana", NOW),
+      cancelDraft(db, id, "ana", NOW),
+    ]);
+    const created = (await db.select().from(tickets)).length;
+    expect(created).toBe(confirmed.ok ? 1 : 0);
+    expect(confirmed.ok && cancelled).toBe(false);
+  });
+
   it("atualiza o chamado existente e zera o prazo", async () => {
     await db.insert(tickets).values(ticketRow({ updatedAt: NOW - 5 * DAY }));
     const r = await createDraft(db, client, ctx(), {
