@@ -13,7 +13,8 @@
     "db:push": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs push --force",
     "db:seed": "node --env-file-if-exists=.env.local --import tsx src/db/seed.ts",
     "db:setup": "npm run db:push && npm run db:seed",
-    "agent:smoke": "node --env-file-if-exists=.env.local --import tsx scripts/smoke-agent.mts"
+    "agent:smoke": "node --env-file-if-exists=.env.local --import tsx scripts/smoke-agent.mts",
+    "evals": "node --env-file-if-exists=.env.local --import tsx scripts/evals.mts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.109",

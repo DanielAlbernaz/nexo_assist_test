@@ -17,6 +17,8 @@ export const config = {
   llm: {
     provider: process.env.LLM_PROVIDER ?? "google",
     model: process.env.LLM_MODEL ?? "gemini-flash-lite-latest",
+    /** Opcional. Só ajuda se esse modelo tiver cota (o plano gratuito limita os flash maiores). */
+    fallbackModel: process.env.LLM_FALLBACK_MODEL ?? "",
   },
 } as const;
 

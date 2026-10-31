@@ -22,7 +22,7 @@ export const SEED_PASSWORD = "nexo123";
 const H = 60 * 60 * 1000;
 const D = 24 * H;
 
-async function main() {
+export async function runSeed() {
   const now = Date.now();
   const hash = await bcrypt.hash(SEED_PASSWORD, 10);
 
@@ -374,7 +374,10 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Roda sozinho com `npm run db:seed`; quando importado (ex.: evals) só expõe runSeed.
+if (require.main === module) {
+  runSeed().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
