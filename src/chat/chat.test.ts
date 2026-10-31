@@ -12,7 +12,7 @@ import { cancelDraft, confirmDraft, createDraft, type DraftInput } from "./draft
 import { handoffInfo } from "./handoff";
 import { draftIntent } from "./intent";
 import { searchArticles } from "./knowledge";
-import { getOrCreateConversation, listMessages } from "./repository";
+import { addMessage, countRecentUserMessages, getOrCreateConversation, listMessages } from "./repository";
 import type { ChatMessage } from "./types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -262,6 +262,14 @@ describe("ferramentas do agent: privacidade e uso", () => {
     expect(conv?.state).toBe("waiting_analyst");
   });
 
+  it("request_handoff chamado duas vezes não duplica a transferência", async () => {
+    const input = { reason: "user_request", summary: "Quer falar com alguém" };
+    await run(tools().request_handoff, input, "ana");
+    await run(tools().request_handoff, input, "ana");
+    const system = (await db.select().from(messages)).filter((m) => m.role === "system");
+    expect(system).toHaveLength(1);
+  });
+
   it("sem usuário no contexto a ferramenta falha em vez de assumir um", async () => {
     await expect(
       (tools().list_my_tickets as unknown as { execute: (i: unknown, c: unknown) => Promise<unknown> }).execute(
@@ -341,5 +349,22 @@ describe("histórico enviado ao modelo", () => {
     expect(out[0]).toMatchObject({ role: "assistant" });
     expect(String((out[0] as { content: string }).content)).toContain("opções mostradas");
     expect(String((out[1] as { content: string }).content)).toContain("(analista humano)");
+  });
+});
+
+describe("limite por minuto (persistido no banco)", () => {
+  it("conta só mensagens do funcionário, dele e da última janela", async () => {
+    const other = (await getOrCreateConversation(db, "carla", NOW)).id;
+    const add = (conversationId: string, role: "user" | "agent", agoMs: number) =>
+      addMessage(db, { conversationId, role, content: "x", now: NOW - agoMs });
+
+    await add(convId, "user", 10_000);
+    await add(convId, "user", 20_000);
+    await add(convId, "agent", 5_000); // resposta do agent não conta
+    await add(convId, "user", 120_000); // fora da janela
+    await add(other, "user", 1_000); // de outro funcionário
+
+    expect(await countRecentUserMessages(db, "ana", NOW - 60_000)).toBe(2);
+    expect(await countRecentUserMessages(db, "carla", NOW - 60_000)).toBe(1);
   });
 });

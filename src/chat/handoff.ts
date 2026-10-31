@@ -1,6 +1,6 @@
 import { addBusinessHours } from "@/domain/business-hours";
 import type { Db } from "@/db/client";
-import { addMessage, setState } from "./repository";
+import { addMessage, getConversation, setState } from "./repository";
 import type { HandoffReason } from "./types";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -27,7 +27,21 @@ export interface HandoffInput {
   now?: number;
 }
 
+/**
+ * Idempotente: se a conversa já está com a fila ou com um analista, devolve a
+ * transferência existente sem gravar nada (o modelo às vezes chama duas vezes).
+ */
 export async function requestHandoff(db: Db, input: HandoffInput) {
+  const existing = await getConversation(db, input.conversationId);
+  if (
+    existing &&
+    (existing.state === "waiting_analyst" || existing.state === "with_analyst") &&
+    existing.handoffReason &&
+    existing.handoffAt
+  ) {
+    return handoffInfo(existing.handoffReason as HandoffReason, existing.handoffAt);
+  }
+
   const now = input.now ?? Date.now();
   const info = handoffInfo(input.reason, now);
   await setState(
