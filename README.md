@@ -38,6 +38,7 @@ npm run typecheck        # tsc --noEmit
 npm run lint
 npm run db:setup         # recria tabelas e dados de exemplo
 npm run agent:smoke -- "mensagem 1" "mensagem 2"   # conversa com o agent real no terminal
+npm run evals            # cenários de comportamento do agent contra o modelo real
 ```
 
 Para simular o legado instável, defina `TICKET_SERVICE_FAILURE_RATE=0.5` (e, se quiser, `TICKET_SERVICE_LATENCY_MS=800`) no `.env.local`.
@@ -118,13 +119,14 @@ Acima de cada resposta aparecem os passos executados ("consultou seus chamados",
 
 ## Modelo e custo
 
-**Gemini Flash-Lite** (`gemini-flash-lite-latest`) via Google AI Studio, com fallback para `gemini-flash-latest`.
+**Gemini Flash-Lite** (`gemini-flash-lite-latest`) via Google AI Studio. Há retry automático e, opcionalmente, um modelo reserva em `LLM_FALLBACK_MODEL`.
 
 - É gratuito para este uso e bom em *tool calling*, que é o que o agent mais faz.
-- Durante o desenvolvimento, os modelos flash maiores estavam sobrecarregados ou com cota esgotada no plano gratuito, e o Flash-Lite respondeu de forma estável. Por isso o fallback e o retry (`src/agent/model.ts`).
+- Durante o desenvolvimento, os modelos flash maiores estavam sobrecarregados ou com cota esgotada no plano gratuito (20 requisições por dia), e o Flash-Lite respondeu de forma estável. Por isso ele é o padrão e o fallback é opcional (`src/agent/model.ts`).
+- **Limite do plano gratuito**: o Flash-Lite aceita cerca de 15 requisições por minuto, e cada turno do agent usa de 2 a 4. Com várias pessoas usando a mesma chave ao mesmo tempo, o provedor responde 429; o agent avisa o funcionário e a conversa continua. Para uma demonstração concorrida, ative cobrança no projeto do Google com um teto de gasto baixo.
 - O modelo é configurável por `LLM_MODEL`. Trocar de provedor é instalar `@ai-sdk/<provedor>` e ajustar `getModels()`.
 
-Controles de custo: máximo de **30 mensagens por conversa** (visível na interface), no máximo **8 mensagens por minuto por usuário**, **histórico limitado a 16 mensagens** por turno, no máximo **8 passos** por turno e 60 s de timeout. Confirmação e cancelamento ("sim", "cancelar") e os botões do rascunho não chamam o modelo. Prioridade e prazo são calculados em código, sem gastar tokens.
+Controles de custo: máximo de **30 mensagens por conversa** (visível na interface), no máximo **8 mensagens por minuto por usuário** (contadas no banco, então valem em qualquer instância), **histórico limitado a 16 mensagens** por turno, no máximo **8 passos** por turno e 60 s de timeout. Confirmação e cancelamento ("sim", "cancelar") e os botões do rascunho não chamam o modelo. Prioridade e prazo são calculados em código, sem gastar tokens.
 
 ## Segurança
 
@@ -136,13 +138,19 @@ Controles de custo: máximo de **30 mensagens por conversa** (visível na interf
 
 ## Testes
 
-`npm test` roda 63 testes:
+`npm test` roda 65 testes:
 
 - **Domínio**: horário útil atravessando fim de semana, prazos, vencimento, prioridade, reabertura, duplicidade.
 - **Serviço de chamados**: privacidade, numeração, reabertura, indisponibilidade e retry, em SQLite em memória com o schema real.
 - **Chat**: rascunhos, confirmação (inclui "não cria duas vezes", "legado fora do ar mantém pendente" e transferência automática em chamado crítico), privacidade das ferramentas do agent, central de ajuda, sessão assinada e rate limit.
 
-O modelo em si não entra nos testes automatizados (não é determinístico e custa dinheiro). Ele é exercitado por `npm run agent:smoke` e pela interface; as regras que ele não pode violar é que são testadas.
+### Evals do agent (modelo real)
+
+`npm run evals` roda 13 cenários de conversa contra o Gemini, num banco SQLite próprio recriado a cada execução, e confere comportamentos que não podem falhar: responder dúvida pela central sem abrir chamado, respeitar a condição do artigo (Windows 10 × 11), montar rascunho com a prioridade certa **sem criar nada antes da confirmação**, perguntar quando o pedido é vago, sinalizar chamado vencido, transferir quando pedem um analista, atualizar o chamado aberto em vez de duplicar, reabrir só dentro de 7 dias, redirecionar assunto de RH, **não revelar chamado de outro funcionário**, resistir a injeção de prompt e tratar caso crítico como prioridade Crítica. No fim ele confere o invariante "nenhum chamado foi criado sem confirmação".
+
+O modelo não é determinístico, então cada cenário tem até 2 tentativas (`EVALS_ATTEMPTS`) e o relatório separa "passou de primeira" de "só na repetição". Última execução: **13 cenários, 11 de primeira, 2 só na repetição, 0 falharam**. Eles não rodam no `npm test` porque gastam cota do modelo e dependem de rede. Filtre por nome com `npm run evals -- vpn`.
+
+Os evals já pegaram dois defeitos reais: o agent transferia um caso crítico sem abrir o chamado e chamava a transferência duas vezes (agora a ferramenta é idempotente e o prompt manda abrir o chamado primeiro).
 
 ## Deploy (Vercel + Turso)
 
@@ -157,19 +165,19 @@ O modelo em si não entra nos testes automatizados (não é determinístico e cu
 2. **Vercel**: importe o repositório e configure `GOOGLE_GENERATIVE_AI_API_KEY`, `SESSION_SECRET`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (e `LLM_MODEL`, se quiser).
 3. **Custo**: use uma chave do AI Studio dedicada ao deploy e revogue-a depois da avaliação. Os limites da seção "Modelo e custo" já valem em produção.
 
-Limitação conhecida: o rate limit por minuto é em memória, por instância. O teto de 30 mensagens por conversa é persistido no banco e vale sempre.
+Os limites do chat (30 mensagens por conversa e 8 por minuto) são contados no banco e valem em qualquer instância. Só a proteção contra tentativas de login é em memória, por instância.
 
 ## Trade-offs e o que faria com mais tempo
 
 - **Sistema de chamados**: é um módulo separado com interface própria, não um serviço HTTP independente. Mantive assim para rodar com poucos comandos; trocar por um cliente HTTP é mudar `src/ticket-service/client.ts`.
 - **Tempo real**: o chat usa SSE para a resposta do agent, mas mensagens de analista chegam por *polling* de 3 s. Com mais tempo: SSE/WebSocket também para isso e para a lista do console.
 - **Duplicidade e busca na central**: ambas por palavras (Jaccard / sobreposição de termos). Com mais tempo: embeddings, que pegam "VPN caiu" × "sem acesso remoto".
-- **Avaliação do agent**: falta um conjunto de conversas-modelo executado contra o modelo real (*evals*) para medir acerto de ação, duplicidade e transferência antes de trocar modelo ou prompt.
+- **Evals**: hoje são 13 cenários de uma única passada por conversa; faltam conversas longas, mais variações de redação e métricas de custo por cenário.
 - **Escopo só TI** hoje depende do modelo; um classificador barato antes do agent tornaria isso verificável.
 - **Feriados** no cálculo do horário útil, e plantão por equipe.
 - **Observabilidade**: os passos ficam no banco; faltam métricas de custo/tokens por conversa e alertas.
 - **Autenticação**: senha em seed e cookie próprio atendem ao desafio; em produção seria SSO corporativo.
-- **Rate limit** compartilhado (Redis/Upstash) e bloqueio otimista quando dois analistas tentam assumir a mesma conversa.
+- **Limite de login** compartilhado (Redis/Upstash) e bloqueio otimista quando dois analistas tentam assumir a mesma conversa.
 - **Editar rascunho**: o botão "Editar" pré-preenche o chat para o agent gerar um rascunho novo (que substitui o anterior), em vez de um formulário.
 
 ## Uso de IA no desenvolvimento
