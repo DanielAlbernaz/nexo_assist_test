@@ -4,6 +4,7 @@ import { cancelDraft, confirmDraft } from "@/chat/drafts";
 import { draftIntent } from "@/chat/intent";
 import {
   addMessage,
+  countRecentUserMessages,
   getOrCreateConversation,
   incrementUserMessages,
   listMessages,
@@ -11,7 +12,6 @@ import {
 } from "@/chat/repository";
 import { apiError, isResponse, requireApiUser } from "@/lib/api";
 import { config } from "@/lib/config";
-import { rateLimit } from "@/lib/rate-limit";
 import { db, tickets } from "@/lib/services";
 
 export const maxDuration = 60;
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError(400, "Escreva uma mensagem de até 2000 caracteres.");
   const { text } = parsed.data;
 
-  const limit = rateLimit(`chat:${user.id}`, config.maxMessagesPerMinute, 60_000);
-  if (!limit.ok) {
+  const lastMinute = await countRecentUserMessages(db, user.id, Date.now() - 60_000);
+  if (lastMinute >= config.maxMessagesPerMinute) {
     return apiError(429, "Você está enviando mensagens rápido demais. Aguarde alguns segundos.");
   }
 

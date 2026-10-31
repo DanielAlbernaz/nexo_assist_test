@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ne } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { conversations, drafts, messages } from "@/db/schema";
 import type { ChatMessage, ConversationState, MessageParts } from "./types";
@@ -53,6 +53,29 @@ export async function draftStatuses(db: Db, conversationId: string) {
     string,
     "pending" | "confirmed" | "cancelled"
   >;
+}
+
+/**
+ * Mensagens do funcionário (em qualquer conversa) desde `since`. É a base do limite
+ * por minuto: vem do banco, então vale em qualquer instância do servidor.
+ */
+export async function countRecentUserMessages(
+  db: Db,
+  userId: string,
+  since: number,
+): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(
+      and(
+        eq(conversations.userId, userId),
+        eq(messages.role, "user"),
+        gt(messages.createdAt, since),
+      ),
+    );
+  return row?.n ?? 0;
 }
 
 export async function getConversation(db: Db, id: string): Promise<Conversation | null> {
