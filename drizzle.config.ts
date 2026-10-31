@@ -1,7 +1,8 @@
 import { defineConfig } from "drizzle-kit";
+import { databaseAuthToken, databaseUrl } from "./src/db/env";
 import { ensureLocalDbDir } from "./src/db/ensure-dir";
 
-const url = process.env.DATABASE_URL ?? "file:./data/nexo.db";
+const url = databaseUrl();
 ensureLocalDbDir(url);
 
 export default defineConfig({
@@ -10,6 +11,6 @@ export default defineConfig({
   dialect: "turso",
   dbCredentials: {
     url,
-    authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+    authToken: databaseAuthToken(),
   },
 });

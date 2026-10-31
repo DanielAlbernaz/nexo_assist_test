@@ -154,7 +154,7 @@ Os evals já pegaram dois defeitos reais: o agent transferia um caso crítico se
 
 ## Deploy (Vercel + Turso)
 
-1. **Banco**: crie um banco no [Turso](https://turso.tech) e gere um token.
+1. **Banco**: crie um banco no [Turso](https://turso.tech) e gere um token. A integração Turso da Vercel cria as variáveis como `DATABASE_TURSO_DATABASE_URL` e `DATABASE_TURSO_AUTH_TOKEN`; o app aceita esses nomes além de `DATABASE_URL` e `DATABASE_AUTH_TOKEN`.
    ```bash
    turso db create nexo-assist
    turso db show nexo-assist --url          # libsql://...

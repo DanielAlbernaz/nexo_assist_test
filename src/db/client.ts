@@ -1,14 +1,15 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { databaseAuthToken, databaseUrl } from "./env";
 import { ensureLocalDbDir } from "./ensure-dir";
 import * as schema from "./schema";
 
-const url = process.env.DATABASE_URL ?? "file:./data/nexo.db";
+const url = databaseUrl();
 ensureLocalDbDir(url);
 
 const client = createClient({
   url,
-  authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+  authToken: databaseAuthToken(),
 });
 
 export const db = drizzle(client, { schema });
