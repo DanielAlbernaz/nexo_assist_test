@@ -96,7 +96,7 @@ O prompt orienta conduta e tom. Tudo que **não pode falhar** também está no c
 | Só cria/atualiza **depois da confirmação** | `draft_ticket` só grava um rascunho. Criar é `POST /api/drafts/:id/confirm`, acionado pelo clique (ou um "sim" isolado, tratado em `src/chat/intent.ts` sem passar pelo modelo). O modelo não tem ferramenta de criação. |
 | **Privacidade**: chamado só para quem o abriu | O usuário vem da sessão (cookie assinado) e entra nas ferramentas por `requestContext`, nunca por argumento do modelo. O serviço filtra por dono e responde "não encontrado" para chamado alheio (não revela existência). Testado. |
 | **Prioridade e prazo** | `computePriority` (impacto × urgência) e `slaDeadline`. O modelo só informa fatos: quem é afetado, se bloqueia, se há compromisso hoje. |
-| **Sem duplicidade** | Filtro determinístico (`findDuplicateCandidates`) + decisão do agent, sempre mostrada ao funcionário. Confirmar duas vezes o mesmo rascunho não cria dois chamados. |
+| **Sem duplicidade** | Filtro determinístico (`findDuplicateCandidates`) + decisão do agent, sempre mostrada ao funcionário. Confirmar o mesmo rascunho várias vezes (duplo clique, duas abas) cria **um** chamado: a confirmação reserva o rascunho com um `UPDATE ... WHERE status = 'pending'` atômico. Testado com confirmações simultâneas. |
 | **Reabertura ≤ 7 dias** | `canReopen`, checado no rascunho e de novo no serviço. |
 | **Transferência** | `request_handoff` muda o estado da conversa para "aguardando atendente"; enquanto não for `agent`, a rota de chat guarda a mensagem e **não chama o modelo**. Chamado **crítico** transfere automaticamente ao confirmar. |
 | **Escopo só TI** | Instruções do agent (RH, financeiro e facilities são redirecionados). Esta regra depende do modelo; não há filtro em código. |
@@ -138,7 +138,7 @@ Controles de custo: máximo de **30 mensagens por conversa** (visível na interf
 
 ## Testes
 
-`npm test` roda 65 testes:
+`npm test` roda 67 testes:
 
 - **Domínio**: horário útil atravessando fim de semana, prazos, vencimento, prioridade, reabertura, duplicidade.
 - **Serviço de chamados**: privacidade, numeração, reabertura, indisponibilidade e retry, em SQLite em memória com o schema real.
@@ -178,6 +178,7 @@ Os limites do chat (30 mensagens por conversa e 8 por minuto) são contados no b
 - **Observabilidade**: os passos ficam no banco; faltam métricas de custo/tokens por conversa e alertas.
 - **Autenticação**: senha em seed e cookie próprio atendem ao desafio; em produção seria SSO corporativo.
 - **Limite de login** compartilhado (Redis/Upstash) e bloqueio otimista quando dois analistas tentam assumir a mesma conversa.
+- **Lista do console**: busca a última mensagem de cada conversa com uma consulta por conversa (até 100) a cada 3 s; com muitos analistas e conversas, trocar por uma consulta agregada ou por SSE.
 - **Editar rascunho**: o botão "Editar" pré-preenche o chat para o agent gerar um rascunho novo (que substitui o anterior), em vez de um formulário.
 
 ## Uso de IA no desenvolvimento
