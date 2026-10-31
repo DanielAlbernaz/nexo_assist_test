@@ -152,35 +152,6 @@ O modelo não é determinístico, então cada cenário tem até 2 tentativas (`E
 
 Os evals já pegaram dois defeitos reais: o agent transferia um caso crítico sem abrir o chamado e chamava a transferência duas vezes (agora a ferramenta é idempotente e o prompt manda abrir o chamado primeiro).
 
-## Deploy (Vercel + Turso)
-
-1. **Banco**: crie um banco no [Turso](https://turso.tech) e gere um token. A integração Turso da Vercel cria as variáveis como `DATABASE_TURSO_DATABASE_URL` e `DATABASE_TURSO_AUTH_TOKEN`; o app aceita esses nomes além de `DATABASE_URL` e `DATABASE_AUTH_TOKEN`.
-   ```bash
-   turso db create nexo-assist
-   turso db show nexo-assist --url          # libsql://...
-   turso db tokens create nexo-assist
-   DATABASE_URL=libsql://... DATABASE_AUTH_TOKEN=... npm run db:setup
-   ```
-   O mesmo código usa um arquivo SQLite local em desenvolvimento e o Turso em produção (driver libSQL nos dois).
-2. **Vercel**: importe o repositório e configure `GOOGLE_GENERATIVE_AI_API_KEY`, `SESSION_SECRET`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (e `LLM_MODEL`, se quiser).
-3. **Custo**: use uma chave do AI Studio dedicada ao deploy e revogue-a depois da avaliação. Os limites da seção "Modelo e custo" já valem em produção.
-
-Os limites do chat (30 mensagens por conversa e 8 por minuto) são contados no banco e valem em qualquer instância. Só a proteção contra tentativas de login é em memória, por instância.
-
-## Trade-offs e o que faria com mais tempo
-
-- **Sistema de chamados**: tem contrato HTTP próprio (`src/ticket-service/http.ts`, rota `/api/ticket-service/*`) e o agent o consome por um cliente HTTP, com retry, tradução de status em erros de negócio e token interno. Por padrão o transporte entrega a requisição ao mesmo handler dentro do processo (um deploy só, sem depender de a função serverless alcançar a própria URL). Para usá-lo como serviço separado, defina `TICKET_SERVICE_URL` e `TICKET_SERVICE_TOKEN`: nada mais muda.
-- **Tempo real**: o chat usa SSE para a resposta do agent, mas mensagens de analista chegam por *polling* de 3 s. Com mais tempo: SSE/WebSocket também para isso e para a lista do console.
-- **Duplicidade e busca na central**: ambas por palavras (Jaccard / sobreposição de termos). Com mais tempo: embeddings, que pegam "VPN caiu" × "sem acesso remoto".
-- **Evals**: hoje são 13 cenários de uma única passada por conversa; faltam conversas longas, mais variações de redação e métricas de custo por cenário.
-- **Escopo só TI** hoje depende do modelo; um classificador barato antes do agent tornaria isso verificável.
-- **Feriados** no cálculo do horário útil, e plantão por equipe.
-- **Observabilidade**: os passos ficam no banco; faltam métricas de custo/tokens por conversa e alertas.
-- **Autenticação**: senha em seed e cookie próprio atendem ao desafio; em produção seria SSO corporativo.
-- **Limite de login** compartilhado (Redis/Upstash) e bloqueio otimista quando dois analistas tentam assumir a mesma conversa.
-- **Lista do console**: busca a última mensagem de cada conversa com uma consulta por conversa (até 100) a cada 3 s; com muitos analistas e conversas, trocar por uma consulta agregada ou por SSE.
-- **Editar rascunho**: o botão "Editar" pré-preenche o chat para o agent gerar um rascunho novo (que substitui o anterior), em vez de um formulário.
-
 ## Uso de IA no desenvolvimento
 
 O código foi escrito com apoio do Claude Code. As decisões de arquitetura estão descritas acima (o que fica no código e o que fica no prompt, confirmação só por ação do usuário, identidade do usuário fora do alcance do modelo, regras de prazo) e as regras estão cobertas por testes.
